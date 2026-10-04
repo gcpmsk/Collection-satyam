@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1E1A1D">
+<title>Satyam Gold - Collection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;500;600;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen" class="screen login-wrap">
+  <div class="particles"></div>
+  <div class="login-card">
+    <div class="logo">SATYAM GOLD</div>
+    <div class="logo-sub">Collection</div>
+    <div class="tab-switcher"><div class="tab-indicator"></div>
+      <button class="tab-btn active" data-tab="password-login">Password</button>
+      <button class="tab-btn" data-tab="otp-login">OTP</button>
+    </div>
+    <form id="password-login" class="form-section active">
+      <div class="input-group"><input type="tel" id="mobileInput" placeholder="Mobile Number" inputmode="numeric" maxlength="10" required></div>
+      <div class="input-group"><input type="password" id="passwordInput" placeholder="Password" required></div>
+      <button type="submit" class="submit-btn">Login</button>
+    </form>
+    <form id="otp-login" class="form-section">
+      <div class="input-group"><input type="tel" id="otpInput" placeholder="6 अंकों का OTP" inputmode="numeric" maxlength="6" required></div>
+      <p class="hint">OTP Owner से लें (2 मिनट valid)</p>
+      <button type="submit" class="submit-btn">OTP से Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= DASHBOARD ================= -->
+<div id="dashScreen" class="screen dash hidden">
+  <header class="topbar">
+    <div><b>SATYAM GOLD</b><small id="whoami"></small></div>
+    <button class="logout" id="logoutBtn">⏻ Logout</button>
+  </header>
+  <div id="menu" class="main-menu"></div>
+  <div id="view"></div>
+</div>
+
+<!-- ================= MODAL ================= -->
+<div id="modal" class="modal hidden"><div class="modal-box"><button class="modal-x" id="modalX">&times;</button><div id="modalBody"></div></div></div>
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "satyam-collection",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SATYAM GOLD — Collection App (Cloudflare Pages + PostgreSQL)",
+  "dependencies": { "pg": "^8.13.1" }
+}
