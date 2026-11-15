@@ -76,3 +76,6 @@ Adminer खोलें (`http://140.245.7.25:5051`) → DB `postgres`, Schema `
 * `index.html`, `style.css`, `app.js` — frontend
 * `functions/api/[[path]].js` — सारा API (`/api/login`, `/api/customers`, `/api/customer`, `/api/pay`, `/api/order`, `/api/day`, `/api/orders`, `/api/later`, `/api/laters`, `/api/later/done`, `/api/packs`, `/api/agents*`, `/api/notvisit`, `/api/health`)
 * `schema.sql` — Adminer में paste करने वाला SQL
+
+## 🧾 WhatsApp Receipt (auto) + double-payment guard
+Payment Save hote hi customer ko Meta template `satyam_payment_receipt` automatic jaata hai (ek payment = ek receipt). Save par double click / network retry se ab 2 payment nahi banti (`req_id`). Failed receipts main app me 💬 WhatsApp → 🧾 Receipts me dikhti hain. Pura setup: `WHATSAPP-RECEIPT-SETUP.md`. Cloudflare env: `WA_TOKEN`, `WA_PHONE_ID`, `WA_RECEIPT_PARAMS`.

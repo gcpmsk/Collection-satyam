@@ -8,6 +8,7 @@
      SESSION_SECRET कोई भी लंबा random text (ज़रूरी — login token sign होता है)
    ===================================================================== */
 import { Client } from 'pg';
+import { RECEIPT_DDL, queueReceipt, sendQueued, makeRno } from '../_lib/receipt.js';
 
 const H = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
 const ok = (o = {}) => new Response(JSON.stringify({ ok: true, ...o }), { headers: H });
@@ -91,8 +92,12 @@ CREATE TABLE IF NOT EXISTS coll_packs (id BIGSERIAL PRIMARY KEY, pdate TEXT NOT 
   agent_id INT, agent_name TEXT, acts JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (pdate, cust_key));
 `;
+const DDL2 = `
+ALTER TABLE coll_payments ADD COLUMN IF NOT EXISTS req_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS coll_payments_req_idx ON coll_payments (req_id) WHERE req_id IS NOT NULL;
+`;
 let ddlDone = false;
-async function ensure(c) { if (!ddlDone) { await c.query(DDL); ddlDone = true; } }
+async function ensure(c) { if (!ddlDone) { await c.query(DDL); await c.query(DDL2); await c.query(RECEIPT_DDL); ddlDone = true; } }
 
 async function getKey(c, key) { const r = await c.query('SELECT value FROM sg_store WHERE key=$1', [key]);
   const v = r.rows[0]?.value; return v && !v.__deleted ? v.v : null; }
@@ -264,6 +269,7 @@ async function packLocked(c, u, o, body, pdate) {
 /* ===================================================================== */
 export async function onRequest(ctx) {
   const { request, env, params } = ctx;
+  let toSend = [];   // payment commit के बाद WhatsApp receipt (background)
   const path = '/' + [].concat(params.path || []).join('/');
   const method = request.method;
   const url = new URL(request.url);
@@ -355,21 +361,41 @@ export async function onRequest(ctx) {
       let cash = N(body.cash), online = N(body.online);
       if (mode === 'Cash') online = 0; if (mode === 'Online') cash = 0;
       if (cash < 0 || online < 0 || cash + online <= 0) return bad('Amount भरें');
+      /* DOUBLE-SUBMIT GUARD — एक ही Save पर दो बार click / network retry से दो payment नहीं बनेंगे.
+         client हर Save के लिए एक req_id भेजता है; वही id दोबारा आए तो पुरानी payment ही लौटा देते हैं. */
+      const reqId = String(body.req_id || '').slice(0, 80) || null;
+      const dupe = async () => {
+        if (reqId) return (await c.query('SELECT * FROM coll_payments WHERE req_id=$1 AND NOT cancelled', [reqId])).rows[0];
+        // पुराना app (req_id नहीं) — वही customer + वही amount + वही mode 10 सेकंड में दोबारा = double click
+        return (await c.query(`SELECT * FROM coll_payments WHERE cust_key=$1 AND cash=$2 AND online=$3 AND mode=$4 AND NOT cancelled
+          AND COALESCE(agent_id,0)=COALESCE($5,0) AND created_at > now() - interval '10 seconds' ORDER BY id DESC LIMIT 1`,
+          [o.key, cash, online, mode, u.aid || null])).rows[0];
+      };
+      const prev = await dupe();
+      if (prev) return ok({ payment: prev, newBal: +(o.bal).toFixed(2), duplicate: true });
       let pdate = today, source = 'coll';
       if (!body.date) { const lk = await packLocked(c, u, o, body, today);
         if (lk) return bad(`📦 ${lk.by} ने आज ही इसे pack कर दिया (${lk.last}) — दोबारा payment के लिए PAID पर 3 बार जल्दी tap करें`, 409); }
       if (body.date) { if (u.role !== 'admin') return bad('Back-date सिर्फ़ Owner कर सकते हैं', 403);
         pdate = isoToDMY(body.date); if (!pdate) return bad('Date गलत है'); source = 'upc'; }
       await c.query('BEGIN');
-      const p = (await c.query(`INSERT INTO coll_payments (pdate,ts,cust_key,name,address,area,cash,online,mode,agent_id,agent_name,agent_short,source)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', ['coll:pay:' + (reqId || o.key)]);
+      const ins = await c.query(`INSERT INTO coll_payments (pdate,ts,cust_key,name,address,area,cash,online,mode,agent_id,agent_name,agent_short,source,req_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT (req_id) WHERE req_id IS NOT NULL DO NOTHING RETURNING *`,
         [pdate, istTS(), o.key, o.name, o.address, o.area, cash, online, mode, u.aid || null,
-         u.role === 'admin' ? 'Owner' : u.name, u.role === 'admin' ? 'OWN' : u.short, source])).rows[0];
+         u.role === 'admin' ? 'Owner' : u.name, u.role === 'admin' ? 'OWN' : u.short, source, reqId]);
+      if (!ins.rows[0]) { await c.query('ROLLBACK'); const again = await dupe();
+        return ok({ payment: again, newBal: +(o.bal).toFixed(2), duplicate: true }); }
+      const p = ins.rows[0];
       await pushJama(c, p);
       await c.query('UPDATE coll_later SET done=true, done_at=now() WHERE cust_key=$1 AND NOT done', [o.key]);
       if (!body.date) await packAct(c, u, o, today, 'PAID', `${INRs(cash + online)} ${mode}`);
+      /* WhatsApp receipt — payment के साथ ही queue (UNIQUE key 'coll:<id>' → एक payment की एक ही receipt) */
+      const rid = await queueReceipt(c, { key: 'coll:' + p.id, source: 'coll', name: o.name, address: o.address, cash, online, mode,
+        date: pdate, time: p.ts, rno: makeRno(p.created_at, p.id), by: p.agent_name, at: p.created_at, phone: o.mobile });
       await c.query('COMMIT');
-      return ok({ payment: p, newBal: +(o.bal - cash - online).toFixed(2) });
+      if (rid) toSend.push(rid);
+      return ok({ payment: p, newBal: +(o.bal - cash - online).toFixed(2), receipt: rid ? 'queued' : 'exists' });
     }
 
     /* ---------- ORDER ---------- */
@@ -457,6 +483,7 @@ export async function onRequest(ctx) {
       const p = (await c.query('UPDATE coll_payments SET cancelled=true WHERE id=$1 RETURNING *', [+body.id])).rows[0];
       if (p) { const key = 'sg_nb_' + p.pdate; const nb = await getKey(c, key);
         if (nb && Array.isArray(nb.jama)) { nb.jama.forEach(j => { if (String(j.collId) === String(p.id)) j.cut = true; }); await putKey(c, key, nb); } }
+      if (p) await c.query("UPDATE wa_receipts SET status='cancelled', updated_at=now() WHERE dedupe_key=$1 AND status IN ('pending','failed')", ['coll:' + p.id]);
       await c.query('COMMIT'); return ok({});
     }
     if (path === '/agents' && method === 'GET') {
@@ -516,5 +543,11 @@ export async function onRequest(ctx) {
   } catch (e) {
     try { await c?.query('ROLLBACK'); } catch (_) {}
     return bad(e.message || e, 500);
-  } finally { try { await c?.end(); } catch (_) {} }
+  } finally {
+    try { await c?.end(); } catch (_) {}
+    if (toSend.length) {   // response जाने के बाद background में भेजो; fail हुआ तो main app के 💬 WhatsApp → 🧾 Receipts में दिखेगा
+      const job = sendQueued(env, () => db(env), toSend);
+      if (typeof ctx.waitUntil === 'function') ctx.waitUntil(job); else await job;
+    }
+  }
 }

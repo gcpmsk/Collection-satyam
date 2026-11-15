@@ -222,11 +222,15 @@ function vUpc() {
     <button class="btn" id="uSave">Save Payment</button>`);
   customers().catch(e => toast(e.message));
   suggest($('#uQ'), $('#uS'), c => { $('#uK').value = c.key; $('#uN').value = c.name + ' (' + c.address + ')'; $('#uQ').value = c.name; });
-  $('#uSave').onclick = async () => {
+  const upcBase = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  $('#uSave').onclick = async e => {
+    const btn = e.currentTarget; if (btn.disabled) return;
     const date = $('#uD').value, key = $('#uK').value, amt = N($('#uA').value), mode = $('#uM').value;
     if (!date || !key || amt <= 0) return alert('Date, customer और amount भरें!');
-    try { const d = await api('/pay', { key, date, mode, cash: mode === 'Cash' ? amt : 0, online: mode === 'Online' ? amt : 0 });
-      toast('Back-dated payment saved ✔'); showReceipt(d.payment); vUpc(); } catch (e) { alert(e.message); }
+    btn.disabled = true;
+    try { const d = await api('/pay', { key, date, mode, cash: mode === 'Cash' ? amt : 0, online: mode === 'Online' ? amt : 0,
+        req_id: [upcBase, key, date, mode, amt].join('|') });
+      toast(d.duplicate ? 'पहले ही save है (दोबारा नहीं जुड़ा)' : 'Back-dated payment saved ✔'); showReceipt(d.payment); vUpc(); } catch (err) { btn.disabled = false; alert(err.message); }
   };
 }
 
@@ -307,7 +311,11 @@ function tripleTap(x, open) {
     toast(`📦 ${x.pack.by} ने pack किया (${x.pack.last}) — ${3 - n} tap और`);
   };
 }
+/* हर Save के लिए एक पहचान: popup खुलने पर बनती है; वही amount दोबारा submit हो (double click / network retry) तो server पुरानी payment ही लौटाता है */
+const RQ = { base: '' };
+function reqId(key, m, cash, online) { return RQ.base + '|' + key + '|' + m + '|' + cash + '|' + online; }
 function paidPopup(x) {
+  RQ.base = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   openModal(`<h3>💵 Payment — ${esc(x.name)}</h3><p class="muted" style="margin-bottom:10px">बाक़ी: <b style="color:var(--red)">${INR(Math.max(0, x.bal))}</b></p>
     <div class="chips" id="pm">${['Cash', 'Online', 'Mix', 'बाद में'].map(m => `<button class="chip" data-m="${m}">${{ Cash: '💵 Cash', Online: '🏦 Online', Mix: '🔀 Mix', 'बाद में': '⏳ बाद में' }[m]}</button>`).join('')}</div>
     <div id="pf"></div>`, el => {
@@ -336,7 +344,8 @@ function paidPopup(x) {
         const cash = N(pf.querySelector('#pc')?.value), online = N(pf.querySelector('#po')?.value);
         if (cash + online <= 0) return alert('Amount भरें');
         e.target.disabled = true;
-        try { const d = await api('/pay', { key: x.key, mode: m, cash, online, force: !!PK.unlocked[x.key] }); toast('✔ Payment saved'); pollNow(); showReceipt(d.payment); openProfileSilent(x.key); }
+        try { const d = await api('/pay', { key: x.key, mode: m, cash, online, force: !!PK.unlocked[x.key], req_id: reqId(x.key, m, cash, online) });
+          toast(d.duplicate ? '✔ Payment पहले ही save है (दोबारा नहीं जुड़ा)' : '✔ Payment saved' + (d.receipt === 'queued' ? ' · WhatsApp receipt जा रही है' : '')); pollNow(); showReceipt(d.payment); openProfileSilent(x.key); }
         catch (err) { e.target.disabled = false; alert(err.message); }
       };
     });
