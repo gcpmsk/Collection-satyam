@@ -134,3 +134,18 @@ input,select,textarea,button{font-family:inherit;font-size:16px}
 #pdfSheet td.n{text-align:right}
 #pdfSheet .tot td{font-weight:700;background:#f3f4f6}
 @media(max-width:380px){.pgrid{grid-template-columns:1fr}.acts{flex-direction:row}.main-menu{gap:10px}}
+
+/* ---------- PACK / बाद में / reminder ---------- */
+.menu-btn{position:relative}
+.menu-btn .mb{display:none;position:absolute;top:8px;right:12px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--red);color:#fff;font-style:normal;font-size:12px;font-weight:700;align-items:center;justify-content:center}
+.clist .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}.clist .tags:empty{display:none}
+.pk,.lt{display:inline-block;border-radius:8px;padding:2px 8px;font-size:.7em;font-weight:700;color:#fff}
+.pk.lk{background:#c0262d}.pk.me{background:#11803e}.lt{background:#b45309}
+.clist li.packed{background:#fff7ed;border-left:4px solid #c0262d}
+.pkbar{border-radius:10px;padding:8px 10px;margin:8px 0;font-size:.82em;font-weight:600;color:#fff}
+.pkbar.lk{background:#c0262d}.pkbar.me{background:#11803e}.pkbar small{font-weight:500;opacity:.95}
+.ltbar{border-radius:10px;padding:8px 10px;margin:8px 0;font-size:.82em;background:#fef3c7;color:#92400e}
+.agent.late{border-left:5px solid var(--red)}
+.lateTag{margin-top:6px;background:#fde2e2;color:var(--red);font-weight:700;font-size:.8em;border-radius:8px;padding:4px 8px;display:inline-block}
+.ipill{display:inline-block;background:#fef3c7;color:#92400e;border-radius:8px;padding:3px 8px;font-size:.78em;font-weight:600;margin:2px 4px 2px 0}
+.ipill b{color:var(--ac)}

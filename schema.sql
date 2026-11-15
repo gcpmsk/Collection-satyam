@@ -35,7 +35,23 @@ CREATE TABLE IF NOT EXISTS coll_visits (
   agent_id INT, agent_name TEXT, kind TEXT NOT NULL DEFAULT 'profile',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (vdate, cust_key, agent_id, kind));
 
+-- ===== v2 (नया): "बाद में" (date + time) + PACK (live — किसने कौन सा customer आज निपटा दिया) =====
+CREATE TABLE IF NOT EXISTS coll_later (
+  id BIGSERIAL PRIMARY KEY, cust_key TEXT NOT NULL, name TEXT, address TEXT, area TEXT,
+  ldate TEXT NOT NULL, ltime TEXT NOT NULL DEFAULT '', amount NUMERIC NOT NULL DEFAULT 0, note TEXT,
+  agent_id INT, agent_name TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  done BOOLEAN NOT NULL DEFAULT false, done_at TIMESTAMPTZ);
+CREATE INDEX IF NOT EXISTS coll_later_open_idx ON coll_later (done, ldate);
+
+CREATE TABLE IF NOT EXISTS coll_packs (
+  id BIGSERIAL PRIMARY KEY, pdate TEXT NOT NULL, cust_key TEXT NOT NULL, area TEXT,
+  agent_id INT, agent_name TEXT, acts JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (pdate, cust_key));
+
 -- देखने के लिए:
+--   SELECT * FROM coll_later WHERE NOT done ORDER BY ldate, ltime;   -- pending "बाद में"
+--   SELECT * FROM coll_packs ORDER BY id DESC LIMIT 50;              -- आज के PACK
 --   SELECT * FROM coll_payments ORDER BY id DESC LIMIT 50;
 --   SELECT agent_name, sum(cash) cash, sum(online) online FROM coll_payments WHERE pdate = to_char(now() AT TIME ZONE 'Asia/Kolkata','DD-MM-YYYY') AND NOT cancelled GROUP BY 1;
 --   SELECT * FROM coll_orders ORDER BY id DESC LIMIT 50;
