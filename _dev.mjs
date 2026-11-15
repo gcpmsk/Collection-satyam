@@ -4,13 +4,16 @@ import http from 'http'; import fs from 'fs'; import path from 'path';
 const db = await PGlite.create(); const srv = new PGLiteSocketServer({ db, port: 5545 }); await srv.start();
 await db.exec(`CREATE TABLE sg_store (key TEXT PRIMARY KEY, value JSONB NOT NULL, updated_at BIGINT NOT NULL DEFAULT 0, synced_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
 const names=['Rahul Kumar','Amit Singh','Bablu Yadav','Sunita Devi','Deepak Shop','Ganesh Store'];
+const nbKey='sg_nb_'+new Date(Date.now()+19800000).toISOString().slice(0,10).split('-').reverse().join('-');
 await db.query(`INSERT INTO sg_store VALUES ('sg_arcpt_01-10-2026',$1,1),('sg_rates',$2,1)`,[JSON.stringify({v:names.map((n,i)=>({no:i+1,name:n,address:i%2?'Paliganj':'Bikram',total:500*(i+1)}))}),JSON.stringify({v:{master:{a10:340,gold:800,a5:180}}})]);
 const { onRequest } = await import('/home/user/webapp/functions/api/[[path]].js');
 const env = { DATABASE_URL: 'postgresql://postgres@127.0.0.1:5545/postgres?sslmode=disable', SESSION_SECRET: 'x' };
+let chain=Promise.resolve();   /* PGlite = एक ही connection — API calls एक-एक करके */
 http.createServer(async (req,res)=>{
   const u=new URL(req.url,'http://x');
   if(u.pathname.startsWith('/api/')){ let b=''; for await(const ch of req) b+=ch;
-    const r=await onRequest({request:new Request('http://x'+req.url,{method:req.method,headers:req.headers,body:req.method==='POST'?b:undefined}),env,params:{path:u.pathname.slice(5).split('/')}});
+    let done; const prev=chain; chain=new Promise(r=>done=r); await prev;
+    let r; try{ r=await onRequest({request:new Request('http://x'+req.url,{method:req.method,headers:req.headers,body:req.method==='POST'?b:undefined}),env,params:{path:u.pathname.slice(5).split('/')}}); } finally { done(); }
     res.writeHead(r.status,{'Content-Type':'application/json'}); res.end(await r.text()); return; }
   const f=path.join('/home/user/webapp',u.pathname==='/'?'index.html':u.pathname);
   try{ const d=fs.readFileSync(f); res.writeHead(200,{'Content-Type':f.endsWith('.css')?'text/css':f.endsWith('.js')?'text/javascript':'text/html'}); res.end(d);}catch(e){res.writeHead(404);res.end();}

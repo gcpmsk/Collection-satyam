@@ -16,12 +16,15 @@ const bad = (msg, status = 400) => new Response(JSON.stringify({ ok: false, erro
 /* ---------------- helpers ---------------- */
 const N = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isFinite(n) ? n : 0; };
 const K = s => String(s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+const INRs = n => '₹' + (Math.round(N(n) * 100) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const pad = n => String(n).padStart(2, '0');
 function ist(d = new Date()) { return new Date(d.getTime() + 330 * 60000); }       // IST wall-clock in UTC fields
 function istDate(d) { const x = ist(d); return `${pad(x.getUTCDate())}-${pad(x.getUTCMonth() + 1)}-${x.getUTCFullYear()}`; }
 function istTS(d) { const x = ist(d); let h = x.getUTCHours(); const ap = h < 12 ? 'AM' : 'PM'; h = h % 12 || 12; return `${pad(h)}:${pad(x.getUTCMinutes())} ${ap}`; }
 function dv(d) { const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(d || ''); return m ? (+m[3]) * 10000 + (+m[2]) * 100 + (+m[1]) : 0; }
 function isoToDMY(s) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? `${m[3]}-${m[2]}-${m[1]}` : (/^\d{2}-\d{2}-\d{4}$/.test(s || '') ? s : ''); }
+function istISO(d) { const x = ist(d); return `${x.getUTCFullYear()}-${pad(x.getUTCMonth() + 1)}-${pad(x.getUTCDate())}`; }
+function t12(hhmm) { const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || ''); if (!m) return ''; let h = +m[1]; const ap = h < 12 ? 'AM' : 'PM'; h = h % 12 || 12; return `${pad(h)}:${m[2]} ${ap}`; }
 /* IST midnight (next) as epoch ms */
 function nextMidnightIST() { const x = ist(); return Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate() + 1) - 330 * 60000; }
 function todayAtIST(hhmm) { const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || ''); if (!m) return null; const x = ist();
@@ -80,6 +83,13 @@ CREATE TABLE IF NOT EXISTS coll_orders (id BIGSERIAL PRIMARY KEY, odate TEXT NOT
 CREATE TABLE IF NOT EXISTS coll_visits (id BIGSERIAL PRIMARY KEY, vdate TEXT NOT NULL, cust_key TEXT NOT NULL, area TEXT,
   agent_id INT, agent_name TEXT, kind TEXT NOT NULL DEFAULT 'profile', created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (vdate, cust_key, agent_id, kind));
+CREATE TABLE IF NOT EXISTS coll_later (id BIGSERIAL PRIMARY KEY, cust_key TEXT NOT NULL, name TEXT, address TEXT, area TEXT,
+  ldate TEXT NOT NULL, ltime TEXT NOT NULL DEFAULT '', amount NUMERIC NOT NULL DEFAULT 0, note TEXT,
+  agent_id INT, agent_name TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), done BOOLEAN NOT NULL DEFAULT false, done_at TIMESTAMPTZ);
+CREATE INDEX IF NOT EXISTS coll_later_open_idx ON coll_later (done, ldate);
+CREATE TABLE IF NOT EXISTS coll_packs (id BIGSERIAL PRIMARY KEY, pdate TEXT NOT NULL, cust_key TEXT NOT NULL, area TEXT,
+  agent_id INT, agent_name TEXT, acts JSONB NOT NULL DEFAULT '[]', created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (pdate, cust_key));
 `;
 let ddlDone = false;
 async function ensure(c) { if (!ddlDone) { await c.query(DDL); ddlDone = true; } }
@@ -170,7 +180,7 @@ async function pushJama(c, p) {
   if (!Array.isArray(nb.jama)) nb.jama = [];
   if (nb.jama.some(j => String(j.collId) === String(p.id))) return true;
   const total = N(p.cash) + N(p.online);
-  nb.jama.push({ name: p.name, address: p.address || '', amount: total, online: N(p.online), item: `Collection (${p.agent_short || 'Owner'})`,
+  nb.jama.push({ name: p.name, address: p.address || '', amount: total, online: N(p.online), item: 'Collection',
     ts: p.ts, cut: false, fromColl: true, collId: String(p.id), collBy: p.agent_name || 'Owner', collMode: p.mode });
   await putKey(c, key, nb); return false;
 }
@@ -233,6 +243,24 @@ async function auth(request, env, c) {
 }
 const canArea = (u, area) => u.role === 'admin' || (u.areas || []).includes('ALL') || (u.areas || []).includes(area);
 
+/* ---------------- PACK — आज जिस customer पर action (paise / baad me / order) हो गया ---------------- */
+/* locked = pack किसी और OTP user ने किया है (उसी user के लिए lock नहीं; Owner के लिए कभी lock नहीं) */
+const packView = (r, viewerAid) => { const acts = Array.isArray(r.acts) ? r.acts : []; const l = acts[acts.length - 1] || {};
+  return { by: r.agent_name || 'Owner', last: [l.t, l.d].filter(Boolean).join(' '), at: l.at || '', acts,
+    locked: !!viewerAid && acts.length > 0 && String(l.aid || '') !== String(viewerAid) }; };
+async function packAct(c, u, o, pdate, t, d) {
+  const act = { t, d, by: u.role === 'admin' ? 'Owner' : u.name, aid: u.aid || null, at: istTS() };
+  await c.query(`INSERT INTO coll_packs (pdate,cust_key,area,agent_id,agent_name,acts) VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+    ON CONFLICT (pdate,cust_key) DO UPDATE SET acts = coll_packs.acts || $6::jsonb, agent_id=$4, agent_name=$5, updated_at = now()`,
+    [pdate, o.key, o.area, u.aid || null, u.role === 'admin' ? 'Owner' : u.name, JSON.stringify([act])]);
+}
+/* agent: दूसरे user का pack हो चुका customer — Paid / बाद में तभी जब app से force (3 बार tap) आए. ORDER हमेशा खुला */
+async function packLocked(c, u, o, body, pdate) {
+  if (u.role !== 'agent' || body.force) return null;
+  const r = (await c.query('SELECT * FROM coll_packs WHERE pdate=$1 AND cust_key=$2', [pdate, o.key])).rows[0];
+  const v = r ? packView(r, u.aid) : null; return v && v.locked ? v : null;
+}
+
 /* ===================================================================== */
 export async function onRequest(ctx) {
   const { request, env, params } = ctx;
@@ -285,7 +313,20 @@ export async function onRequest(ctx) {
       if (area && area !== 'ALL') list = list.filter(o => o.area === area);
       if (area && u.role === 'agent') await c.query(`INSERT INTO coll_visits (vdate,cust_key,area,agent_id,agent_name,kind)
         VALUES ($1,$2,$3,$4,$5,'area') ON CONFLICT DO NOTHING`, [today, '__AREA__' + area, area, u.aid, u.name]);
-      return ok({ areas, customers: list.map(o => ({ key: o.key, name: o.name, address: o.address, area: o.area, due: +o.bal.toFixed(2), mobile: o.mobile })) });
+      const later = {}; (await c.query(`SELECT cust_key, min(ldate||' '||ltime) AS at FROM coll_later WHERE NOT done GROUP BY cust_key`)).rows.forEach(r => later[r.cust_key] = r.at);
+      const packs = {}; (await c.query('SELECT cust_key, agent_name, acts FROM coll_packs WHERE pdate=$1', [today])).rows.forEach(r => packs[r.cust_key] = packView(r, u.aid));
+      return ok({ areas, customers: list.map(o => ({ key: o.key, name: o.name, address: o.address, area: o.area, due: +o.bal.toFixed(2), mobile: o.mobile,
+        later: later[o.key] || '', pack: packs[o.key] ? { by: packs[o.key].by, last: packs[o.key].last, at: packs[o.key].at, locked: packs[o.key].locked } : null })) });
+    }
+    /* live PACK + बाद में status (client हर कुछ second में poll करता है) */
+    if (path === '/packs') {
+      const area = q('area');
+      const ok2 = r => canArea(u, r.area) && (!area || area === 'ALL' || r.area === area);
+      const packs = (await c.query('SELECT cust_key, area, agent_name, acts FROM coll_packs WHERE pdate=$1', [today])).rows.filter(ok2)
+        .map(r => { const v = packView(r, u.aid); return { key: r.cust_key, by: v.by, last: v.last, at: v.at, locked: v.locked }; });
+      const later = (await c.query('SELECT cust_key, area, min(ldate||\' \'||ltime) AS at FROM coll_later WHERE NOT done GROUP BY cust_key, area')).rows.filter(ok2)
+        .map(r => ({ key: r.cust_key, at: r.at }));
+      return ok({ packs, later });
     }
     if (path === '/customer') {
       const L = await buildLedger(c); const o = L.map[K(q('key'))];
@@ -294,11 +335,15 @@ export async function onRequest(ctx) {
         VALUES ($1,$2,$3,$4,$5,'profile') ON CONFLICT DO NOTHING`, [today, o.key, o.area, u.aid, u.name]);
       const F = fifo(o);
       const rates = RATE_ITEMS.map(it => ({ t: it.t, k: it.k, rate: rateOf(L.rates, o.key, o.area, it.k) })).filter(x => x.rate > 0);
+      const pkRow = (await c.query('SELECT * FROM coll_packs WHERE pdate=$1 AND cust_key=$2', [today, o.key])).rows[0];
+      const ltRow = (await c.query('SELECT * FROM coll_later WHERE cust_key=$1 AND NOT done ORDER BY ldate, ltime, id LIMIT 1', [o.key])).rows[0];
       const entries = o.due.map(x => ({ ...x, kind: 'due' })).concat(o.paid.map(x => ({ ...x, kind: 'paid' })))
         .sort((a, b) => dv(a.date) - dv(b.date));
       return ok({ customer: { key: o.key, name: o.name, address: o.address, area: o.area, mobile: o.mobile,
         dueT: o.dueT, paidT: o.paidT, bal: +o.bal.toFixed(2), open: F.open, advance: F.advance,
-        rates, entries: u.role === 'admin' ? entries : [] } });
+        rates, entries: u.role === 'admin' ? entries : [],
+        pack: pkRow ? packView(pkRow, u.aid) : null,
+        later: ltRow ? { id: ltRow.id, date: ltRow.ldate, time: ltRow.ltime, amount: N(ltRow.amount), note: ltRow.note || '', by: ltRow.agent_name } : null } });
     }
 
     /* ---------- PAYMENT ---------- */
@@ -311,6 +356,8 @@ export async function onRequest(ctx) {
       if (mode === 'Cash') online = 0; if (mode === 'Online') cash = 0;
       if (cash < 0 || online < 0 || cash + online <= 0) return bad('Amount भरें');
       let pdate = today, source = 'coll';
+      if (!body.date) { const lk = await packLocked(c, u, o, body, today);
+        if (lk) return bad(`📦 ${lk.by} ने आज ही इसे pack कर दिया (${lk.last}) — दोबारा payment के लिए PAID पर 3 बार जल्दी tap करें`, 409); }
       if (body.date) { if (u.role !== 'admin') return bad('Back-date सिर्फ़ Owner कर सकते हैं', 403);
         pdate = isoToDMY(body.date); if (!pdate) return bad('Date गलत है'); source = 'upc'; }
       await c.query('BEGIN');
@@ -319,6 +366,8 @@ export async function onRequest(ctx) {
         [pdate, istTS(), o.key, o.name, o.address, o.area, cash, online, mode, u.aid || null,
          u.role === 'admin' ? 'Owner' : u.name, u.role === 'admin' ? 'OWN' : u.short, source])).rows[0];
       await pushJama(c, p);
+      await c.query('UPDATE coll_later SET done=true, done_at=now() WHERE cust_key=$1 AND NOT done', [o.key]);
+      if (!body.date) await packAct(c, u, o, today, 'PAID', `${INRs(cash + online)} ${mode}`);
       await c.query('COMMIT');
       return ok({ payment: p, newBal: +(o.bal - cash - online).toFixed(2) });
     }
@@ -339,8 +388,48 @@ export async function onRequest(ctx) {
         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8) RETURNING *`,
         [today, o.key, o.name, o.address, JSON.stringify(items), u.aid || null, u.role === 'admin' ? 'Owner' : u.name, u.role === 'admin' ? 'OWN' : u.short])).rows[0];
       await pushOrder(c, r);
+      await packAct(c, u, o, today, 'ORDER', '#' + (r.ord_no || ''));
       await c.query('COMMIT');
       return ok({ order: r });
+    }
+
+    /* ---------- TODAY ORDERS — OTP user को सिर्फ़ अपने allowed area के ---------- */
+    if (path === '/orders') {
+      const date = u.role === 'admin' ? (isoToDMY(q('date')) || today) : today;
+      const rows = (await c.query('SELECT * FROM coll_orders WHERE odate=$1 ORDER BY id', [date])).rows
+        .map(o => ({ ...o, area: areaOf(o.address) })).filter(o => canArea(u, o.area));
+      return ok({ date, orders: rows.map(o => ({ id: o.id, no: o.ord_no, name: o.name, address: o.address, area: o.area, items: o.items,
+        by: o.agent_name || 'Owner', at: istTS(new Date(o.created_at)) })) });
+    }
+
+    /* ---------- बाद में (payment reminder: date + time) ---------- */
+    if (path === '/later' && method === 'POST') {
+      const L = await buildLedger(c); const o = L.map[K(body.key)];
+      if (!o || !canArea(u, o.area)) return bad('Customer नहीं मिला', 404);
+      const ld = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? body.date : ''; if (!ld) return bad('तारीख़ चुनें');
+      if (ld < istISO()) return bad('पुरानी तारीख़ नहीं चल सकती');
+      const lt = /^\d{1,2}:\d{2}$/.test(body.time || '') ? String(body.time).padStart(5, '0') : ''; if (!lt) return bad('समय (time) चुनें');
+      const lk = await packLocked(c, u, o, body, today);
+      if (lk) return bad(`📦 ${lk.by} ने आज ही इसे pack कर दिया (${lk.last})`, 409);
+      await c.query('BEGIN');
+      await c.query('UPDATE coll_later SET done=true, done_at=now() WHERE cust_key=$1 AND NOT done', [o.key]);
+      const r = (await c.query(`INSERT INTO coll_later (cust_key,name,address,area,ldate,ltime,amount,note,agent_id,agent_name)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [o.key, o.name, o.address, o.area, ld, lt, Math.max(0, N(body.amount)), String(body.note || '').slice(0, 200), u.aid || null, u.role === 'admin' ? 'Owner' : u.name])).rows[0];
+      await packAct(c, u, o, today, 'बाद में', `${isoToDMY(ld)} ${t12(lt)}`);
+      await c.query('COMMIT');
+      return ok({ later: r });
+    }
+    if (path === '/laters') {
+      const L = await buildLedger(c);
+      const rows = (await c.query('SELECT * FROM coll_later WHERE NOT done ORDER BY ldate, ltime, id')).rows.filter(r => canArea(u, r.area));
+      return ok({ today: istISO(), now: ist().toISOString().slice(11, 16), laters: rows.map(r => ({ id: r.id, key: r.cust_key, name: r.name, address: r.address, area: r.area,
+        date: r.ldate, time: r.ltime, amount: N(r.amount), note: r.note || '', by: r.agent_name || '', due: +(L.map[r.cust_key]?.bal || 0).toFixed(2) })) });
+    }
+    if (path === '/later/done' && method === 'POST') {
+      const r = (await c.query('SELECT * FROM coll_later WHERE id=$1', [+body.id])).rows[0];
+      if (!r || !canArea(u, r.area)) return bad('नहीं मिला', 404);
+      await c.query('UPDATE coll_later SET done=true, done_at=now() WHERE id=$1', [r.id]); return ok({});
     }
 
     /* ---------- DAY TO DAY / TODAY COLLECTION ---------- */
@@ -378,7 +467,7 @@ export async function onRequest(ctx) {
     }
     if (path === '/agents' && method === 'POST') {
       const name = String(body.name || '').trim(); if (!name) return bad('नाम भरें');
-      const short = (String(body.short || '').trim() || name.split(/\s+/)[0]).slice(0, 12);
+      const short = name.split(/\s+/)[0].slice(0, 12);   /* Short Name अब form में नहीं — सिर्फ़ DB के लिए नाम से अपने-आप */
       let areas = Array.isArray(body.areas) ? body.areas.map(String) : []; if (!areas.length) return bad('कम से कम एक Area allow करें');
       if (areas.includes('ALL')) areas = ['ALL'];
       const lt = /^\d{1,2}:\d{2}$/.test(body.logout_time || '') ? body.logout_time : '23:59';
