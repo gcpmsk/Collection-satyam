@@ -2,9 +2,11 @@
   "name": "satyam-collection",
   "version": "1.0.0",
   "private": true,
-  "description": "SATYAM GOLD — Collection App (Cloudflare Pages + PostgreSQL)",
+  "description": "SATYAM GOLD \u2014 Collection App (Cloudflare Pages + PostgreSQL)",
   "dependencies": {
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "@resvg/resvg-wasm": "^2.6.2",
+    "fontkit": "^3.0.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8"
