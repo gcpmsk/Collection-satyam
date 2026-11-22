@@ -11,8 +11,10 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 const String kSiteUrl = 'https://collection.satyamgold.com';
 const String kSiteHost = 'collection.satyamgold.com';
-const Color kGold = Color(0xFFD4AF37);
-const Color kChar = Color(0xFF1E1A1D);
+const Color kGold = Color(0xFFF2B72A);
+const Color kChar = Color(0xFF4A0A0E);
+const Color kMaroonDark = Color(0xFF2E0508);
+const Color kCream = Color(0xFFFFF7E6);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: RadialGradient(colors: [Color(0xFF3A2F1A), kChar], radius: 1.1),
+          gradient: RadialGradient(colors: [Color(0xFF7A1218), kMaroonDark], radius: 1.1),
         ),
         child: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -92,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(32),
-                  child: Image.asset('assets/icon/app_icon.png', width: 150, height: 150),
+                  child: Image.asset('assets/icon/app_icon.png', width: 170, height: 170),
                 ),
               ),
             ),
@@ -153,17 +155,17 @@ const String _injectJs = r'''
   var st=document.createElement('style');
   st.textContent=`
     #logoutBtn{display:none!important}
-    body{background:#f1f3f9!important}
-    .topbar{background:linear-gradient(135deg,#1E1A1D,#3a2f1a)!important;border-bottom:2px solid #D4AF37!important;padding:12px 14px!important;margin:0 -12px;border-radius:0 0 18px 18px}
-    .topbar b{color:#D4AF37!important;letter-spacing:1.5px;font-size:1.1em!important}
-    .topbar small{color:#e8dcc0!important}
-    .menu-btn{background:linear-gradient(145deg,#ffffff,#eef0f8)!important;border:1px solid rgba(212,175,55,.45)!important;border-radius:20px!important;box-shadow:0 6px 14px rgba(30,26,29,.14),inset 0 1px 0 #fff!important;transition:transform .15s,box-shadow .15s}
-    .menu-btn:active{transform:scale(.95);box-shadow:0 2px 6px rgba(30,26,29,.2)!important}
-    .menu-btn .ic{filter:drop-shadow(0 3px 3px rgba(0,0,0,.2))}
-    .btn,.submit-btn{border-radius:14px!important;box-shadow:0 4px 10px rgba(0,0,0,.18)!important;font-weight:700!important}
-    .submit-btn{background:linear-gradient(135deg,#f3d567,#D4AF37,#b8922a)!important}
-    .view{border-radius:20px!important;box-shadow:0 6px 16px rgba(30,26,29,.12)!important}
-    .dash{padding-bottom:20px!important}
+    body{background:#fbf3e4!important}
+    .topbar{background:linear-gradient(135deg,#2E0508,#6d0f16)!important;border-bottom:3px solid #F2B72A!important;padding:12px 14px!important;margin:0 -12px;border-radius:0 0 22px 22px;box-shadow:0 6px 16px rgba(74,10,14,.35)}
+    .topbar b{color:#F2B72A!important;letter-spacing:1.5px;font-size:1.1em!important}
+    .topbar small{color:#ffe9b8!important}
+    .menu-btn{background:linear-gradient(145deg,#ffffff,#fff1d0)!important;border:1.5px solid rgba(242,183,42,.7)!important;border-radius:22px!important;box-shadow:0 8px 18px rgba(74,10,14,.18),inset 0 1px 0 #fff!important;color:#4A0A0E!important;transition:transform .15s,box-shadow .15s}
+    .menu-btn:active{transform:scale(.94);box-shadow:0 2px 6px rgba(74,10,14,.25)!important}
+    .menu-btn .ic{filter:drop-shadow(0 3px 3px rgba(0,0,0,.25))}
+    .btn,.submit-btn{border-radius:16px!important;box-shadow:0 5px 12px rgba(74,10,14,.22)!important;font-weight:700!important}
+    .submit-btn{background:linear-gradient(135deg,#ffd75e,#F2B72A,#c98f12)!important;color:#3a0609!important}
+    .view{border-radius:22px!important;box-shadow:0 8px 18px rgba(74,10,14,.14)!important}
+    .dash{padding-bottom:24px!important}
   `;
   document.head.appendChild(st);
 })();
@@ -292,7 +294,7 @@ class _WebShellState extends State<WebShell> {
           child: Column(children: [
             if (_progress < 100)
               LinearProgressIndicator(
-                  value: _progress / 100, minHeight: 3, color: kGold, backgroundColor: Colors.black26),
+                  value: _progress / 100, minHeight: 3, color: kGold, backgroundColor: kMaroonDark),
             Expanded(
               child: Stack(children: [
                 WebViewWidget(controller: _wc),
@@ -348,22 +350,26 @@ class _BottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF2B2429), kChar]),
-        border: Border(top: BorderSide(color: kGold, width: 1.5)),
-        boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 12, offset: Offset(0, -3))],
-      ),
+      color: kCream,
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 4 + bottomInset),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF7A1218), kMaroonDark]),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: kGold, width: 1.6),
+            boxShadow: [BoxShadow(color: kChar.withValues(alpha: 0.45), blurRadius: 16, offset: const Offset(0, 6))],
+          ),
           child: Row(children: [
             _NavItem(icon: Icons.home_rounded, label: 'Home', onTap: onHome),
             _NavItem(icon: Icons.arrow_back_rounded, label: 'Back', onTap: onBack),
             _NavItem(icon: Icons.refresh_rounded, label: 'Refresh', onTap: onRefresh),
-            _NavItem(icon: Icons.power_settings_new_rounded, label: 'Logout', onTap: onLogout, color: const Color(0xFFFF6B6B)),
+            _NavItem(icon: Icons.power_settings_new_rounded, label: 'Logout', onTap: onLogout, logout: true),
           ]),
         ),
+        const SizedBox(height: 6),
         const _DevCredit(),
       ]),
     );
@@ -374,8 +380,8 @@ class _NavItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final Color color;
-  const _NavItem({required this.icon, required this.label, required this.onTap, this.color = kGold});
+  final bool logout;
+  const _NavItem({required this.icon, required this.label, required this.onTap, this.logout = false});
   @override
   State<_NavItem> createState() => _NavItemState();
 }
@@ -384,6 +390,10 @@ class _NavItemState extends State<_NavItem> {
   bool _down = false;
   @override
   Widget build(BuildContext context) {
+    final grad = widget.logout
+        ? const [Color(0xFFFF6B6B), Color(0xFFC62828)]
+        : const [Color(0xFFFFE08A), Color(0xFFE0A21A)];
+    final fg = widget.logout ? Colors.white : kMaroonDark;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -392,21 +402,29 @@ class _NavItemState extends State<_NavItem> {
         onTapUp: (_) => setState(() => _down = false),
         onTap: widget.onTap,
         child: AnimatedScale(
-          scale: _down ? 0.88 : 1,
+          scale: _down ? 0.86 : 1,
           duration: const Duration(milliseconds: 120),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: widget.color.withValues(alpha: _down ? 0.3 : 0.12),
-                border: Border.all(color: widget.color.withValues(alpha: 0.5)),
+                shape: BoxShape.circle,
+                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: grad),
+                boxShadow: [
+                  BoxShadow(color: grad.last.withValues(alpha: 0.55), blurRadius: 10, offset: const Offset(0, 3)),
+                ],
+                border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.2),
               ),
-              child: Icon(widget.icon, color: widget.color, size: 24),
+              child: Icon(widget.icon, color: fg, size: 25),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(widget.label,
-                style: TextStyle(color: widget.color, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                style: TextStyle(
+                    color: widget.logout ? const Color(0xFFFFB4B4) : const Color(0xFFFFE9B8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6)),
           ]),
         ),
       ),
@@ -414,7 +432,7 @@ class _NavItemState extends State<_NavItem> {
   }
 }
 
-/* "Developed by Avinash" - shimmer + fade animation */
+/* "Developed by Avinash" - slide-in typing + shimmer animation */
 class _DevCredit extends StatefulWidget {
   const _DevCredit();
   @override
@@ -423,7 +441,9 @@ class _DevCredit extends StatefulWidget {
 
 class _DevCreditState extends State<_DevCredit> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat();
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 4200))..repeat();
+
+  static const String _txt = 'Developed by Avinash';
 
   @override
   void dispose() {
@@ -433,34 +453,39 @@ class _DevCreditState extends State<_DevCredit> with SingleTickerProviderStateMi
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5, top: 2),
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (_, __) {
-          final t = _c.value;
-          final pulse = 0.65 + 0.35 * (1 - (2 * t - 1).abs());
-          return Opacity(
-            opacity: pulse,
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, __) {
+        final t = _c.value;
+        // 0-0.35 typing, 0.35-0.85 hold with shimmer, 0.85-1 fade out
+        final typed = (t / 0.35).clamp(0.0, 1.0);
+        final n = (typed * _txt.length).round();
+        final fadeOut = t > 0.85 ? 1 - (t - 0.85) / 0.15 : 1.0;
+        final sh = ((t - 0.35) / 0.5).clamp(0.0, 1.0);
+        return Opacity(
+          opacity: fadeOut,
+          child: Transform.translate(
+            offset: Offset(0, (1 - typed) * 6),
             child: ShaderMask(
               blendMode: BlendMode.srcIn,
               shaderCallback: (r) => LinearGradient(
-                colors: const [Colors.white38, kGold, Colors.white, kGold, Colors.white38],
+                colors: const [kChar, kGold, Color(0xFFB07A00), kGold, kChar],
                 stops: const [0.0, 0.35, 0.5, 0.65, 1.0],
-                begin: Alignment(-2 + 4 * t, 0),
-                end: Alignment(-1 + 4 * t, 0),
+                begin: Alignment(-2 + 4 * sh, 0),
+                end: Alignment(-1 + 4 * sh, 0),
                 tileMode: TileMode.clamp,
               ).createShader(r),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.code_rounded, size: 11, color: Colors.white),
-                SizedBox(width: 4),
-                Text('Developed by Avinash',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2, color: Colors.white)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.auto_awesome, size: 11, color: Colors.white),
+                const SizedBox(width: 5),
+                Text(_txt.substring(0, n),
+                    style: const TextStyle(
+                        fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: Colors.white)),
               ]),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
