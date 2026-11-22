@@ -2,3 +2,13 @@ node_modules/
 .wrangler/
 .dev.vars
 *.log
+.dart_tool/
+build/
+.flutter-plugins*
+.packages
+android/.gradle/
+android/local.properties
+android/key.properties
+android/*.jks
+.idea/
+*.iml
