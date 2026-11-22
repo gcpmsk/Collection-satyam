@@ -156,16 +156,18 @@ const String _injectJs = r'''
   st.textContent=`
     #logoutBtn{display:none!important}
     body{background:#fbf3e4!important}
-    .topbar{background:linear-gradient(135deg,#2E0508,#6d0f16)!important;border-bottom:3px solid #F2B72A!important;padding:12px 14px!important;margin:0 -12px;border-radius:0 0 22px 22px;box-shadow:0 6px 16px rgba(74,10,14,.35)}
-    .topbar b{color:#F2B72A!important;letter-spacing:1.5px;font-size:1.1em!important}
+    html,body{overflow-x:hidden!important}
+    .dash{max-width:760px!important;width:100%!important;padding:0 14px 24px!important;box-sizing:border-box}
+    .topbar{position:sticky!important;top:8px!important;margin:10px 0 0!important;background:linear-gradient(135deg,#2E0508,#7a1218)!important;border:1.5px solid #F2B72A!important;border-radius:20px!important;padding:12px 16px!important;box-shadow:0 8px 18px rgba(74,10,14,.35)!important;box-sizing:border-box;width:100%}
+    .topbar b{color:#F2B72A!important;letter-spacing:1.5px;font-size:1.15em!important}
     .topbar small{color:#ffe9b8!important}
+    .main-menu{gap:14px!important;margin-top:18px!important}
     .menu-btn{background:linear-gradient(145deg,#ffffff,#fff1d0)!important;border:1.5px solid rgba(242,183,42,.7)!important;border-radius:22px!important;box-shadow:0 8px 18px rgba(74,10,14,.18),inset 0 1px 0 #fff!important;color:#4A0A0E!important;transition:transform .15s,box-shadow .15s}
     .menu-btn:active{transform:scale(.94);box-shadow:0 2px 6px rgba(74,10,14,.25)!important}
     .menu-btn .ic{filter:drop-shadow(0 3px 3px rgba(0,0,0,.25))}
     .btn,.submit-btn{border-radius:16px!important;box-shadow:0 5px 12px rgba(74,10,14,.22)!important;font-weight:700!important}
     .submit-btn{background:linear-gradient(135deg,#ffd75e,#F2B72A,#c98f12)!important;color:#3a0609!important}
     .view{border-radius:22px!important;box-shadow:0 8px 18px rgba(74,10,14,.14)!important}
-    .dash{padding-bottom:24px!important}
   `;
   document.head.appendChild(st);
 })();
