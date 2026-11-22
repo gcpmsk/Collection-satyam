@@ -157,12 +157,12 @@ const String _injectJs = r'''
     #logoutBtn{display:none!important}
     body{background:#fbf3e4!important}
     html,body{overflow-x:hidden!important}
-    .dash{max-width:760px!important;width:100%!important;padding:0 14px 24px!important;box-sizing:border-box}
-    .topbar{position:sticky!important;top:8px!important;margin:10px 0 0!important;background:linear-gradient(135deg,#2E0508,#7a1218)!important;border:1.5px solid #F2B72A!important;border-radius:20px!important;padding:12px 16px!important;box-shadow:0 8px 18px rgba(74,10,14,.35)!important;box-sizing:border-box;width:100%}
+    .dash{max-width:100%!important;width:100%!important;margin:0 auto!important;padding:0 16px 24px!important;box-sizing:border-box}
+    .topbar{position:relative!important;top:auto!important;margin:14px 0 0!important;background:linear-gradient(135deg,#2E0508,#7a1218)!important;border:1.5px solid #F2B72A!important;border-radius:22px!important;padding:14px 18px!important;box-shadow:0 8px 18px rgba(74,10,14,.35)!important;box-sizing:border-box;width:100%!important;overflow:hidden}
     .topbar b{color:#F2B72A!important;letter-spacing:1.5px;font-size:1.15em!important}
     .topbar small{color:#ffe9b8!important}
-    .main-menu{gap:14px!important;margin-top:18px!important}
-    .menu-btn{background:linear-gradient(145deg,#ffffff,#fff1d0)!important;border:1.5px solid rgba(242,183,42,.7)!important;border-radius:22px!important;box-shadow:0 8px 18px rgba(74,10,14,.18),inset 0 1px 0 #fff!important;color:#4A0A0E!important;transition:transform .15s,box-shadow .15s}
+    .main-menu{gap:14px!important;margin-top:18px!important;width:100%!important;grid-template-columns:1fr 1fr!important}
+    .menu-btn{width:100%!important;min-height:92px;justify-content:center;padding:16px 8px!important;background:linear-gradient(145deg,#ffffff,#fff1d0)!important;border:1.5px solid rgba(242,183,42,.7)!important;border-radius:22px!important;box-shadow:0 8px 18px rgba(74,10,14,.18),inset 0 1px 0 #fff!important;color:#4A0A0E!important;transition:transform .15s,box-shadow .15s}
     .menu-btn:active{transform:scale(.94);box-shadow:0 2px 6px rgba(74,10,14,.25)!important}
     .menu-btn .ic{filter:drop-shadow(0 3px 3px rgba(0,0,0,.25))}
     .btn,.submit-btn{border-radius:16px!important;box-shadow:0 5px 12px rgba(74,10,14,.22)!important;font-weight:700!important}
